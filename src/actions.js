@@ -14,15 +14,12 @@ class WorkSpaceActions {
 
     async configLoad(context, models) {
         this.prepare(context, models);
-        if (!this.config) {
-            let config;
-            try {
-                const key = this.configKey();
-                config = JSON.parse(await this.context.store.getItem(key));
-            } catch (e) { }
-            return this.config = { host: '', project: '', token: '', path: 'insomnia.json', branch: 'master', message: '', ...config, };
-        }
-        return { ...this.config };
+        let config;
+        try {
+            const key = this.configKey();
+            config = JSON.parse(await this.context.store.getItem(key));
+        } catch (e) { }
+        return this.config = { host: '', project: '', token: '', path: 'insomnia.json', branch: 'master', message: '', ...config, };
     }
 
     async configSave(config) {
