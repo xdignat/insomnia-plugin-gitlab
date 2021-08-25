@@ -5,8 +5,11 @@
     "main": "src/index.js",
     "author": "Dignat",
     "license": "MIT",
+    "repository": "git@github.com:xdignat/insomnia-plugin-gitlab.git",
     "insomnia": {
         "name": "gitlab",
+        "displayName": "GitLab",
+        "description": "Синхонизация колекции с GitLab репозиторием",
         "images": {
             "icon": "icon.svg"
         },
@@ -16,20 +19,9 @@
     },
     "keywords": [
         "insomnia",
-        "gitlab",
+        "gitlab"
     ],
     "dependencies": {
         "axios": "^0.21.1"
-    },
-    "files": [
-        "src"
-    ],
-    "repository": {
-      "type": "git",
-      "url": "git+https://github.com/xdignat/insomnia-plugin-gitlab.git"
-    },
-    "bugs": {
-      "url": "https://github.com/xdignat/insomnia-plugin-gitlab/issues"
-    },
-    "homepage": "https://github.com/xdignat/insomnia-plugin-gitlab#readme"
+    }
 }
