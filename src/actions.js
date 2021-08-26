@@ -1,7 +1,7 @@
 'use strict';
 
 const GitLab = require('./gitlab.js');
-const { htmlCreate } = require('./html.js');
+const HtmlBuilder = require('./html.js');
 
 class WorkSpaceActions {
     constructor() {
@@ -40,103 +40,103 @@ class WorkSpaceActions {
         let projects = await projectList();
         let branches = await branchList();
 
-        const dialog = htmlCreate([
+        const html = new HtmlBuilder({ prefix: 'gitlab' });
+
+        html.make(
             {
-                tag: 'form', class: 'pad', onsubmit,
+                tag: 'form', class: 'form-control form-control--outlined', onsubmit,
                 items: [
                     {
-                        tag: 'div', class: 'form-control form-control--outlined',
+                        tag: 'div', class: 'pad',
                         items: [
                             {
                                 tag: 'label', text: 'Базовый урл:',
-                                items: { id: 'gitlab:host', tag: 'input', name: 'host', type: 'text', oninput, placeholder: 'https://gitlab.com', value: config.host, },
+                                items: { id: 'host', tag: 'input', type: 'text', placeholder: 'https://gitlab.com', value: config.host, oninput: onHost },
                             },
                             {
                                 tag: 'label', text: 'Токен:',
-                                items: { id: 'gitlab:token', tag: 'input', name: 'token', type: 'text', oninput, placeholder: 'accessToken123', value: config.token, },
+                                items: { id: 'token', tag: 'input', type: 'text', placeholder: 'accessToken123', value: config.token, oninput: onToken },
                             },
                             {
                                 tag: 'label', text: 'Id проекта:',
-                                items: [{ id: 'gitlab:project', tag: 'select', name: 'project', oninput, value: config.project, items: projects, },],
+                                items: { id: 'project', tag: 'select', value: config.project, items: projects, oninput: onProject },
                             },
                             {
                                 tag: 'label', text: 'Ветка:',
-                                items: [{ id: 'gitlab:branch', tag: 'select', name: 'branch', oninput, value: config.branch, items: branches, },],
+                                items: { id: 'branch', tag: 'select', value: config.branch, items: branches, oninput: onBranch },
                             },
                             {
                                 tag: 'label', text: 'Имя файла:',
-                                items: { id: 'gitlab:path', tag: 'input', name: 'path', type: 'text', oninput, placeholder: 'insomnia.json', value: config.path, },
+                                items: { id: 'path', tag: 'input', type: 'text', placeholder: 'insomnia.json', value: config.path, oninput: onPath },
                             },
                             {
                                 tag: 'label', text: 'Сообщение для комита (не обязательно):',
-                                items: { id: 'gitlab:message', tag: 'input', name: 'message', type: 'text', oninput, value: config.message, },
+                                items: { id: 'message', tag: 'input', type: 'text', value: config.message, oninput: onMessage },
                             },
                         ],
                     },
                     {
-                        tag: 'div', style: { 'display': 'flex' },
+                        tag: 'div', class: 'modal__footer',
                         items: [
-                            {
-                                tag: 'div', class: 'margin-top', style: { 'display': 'flex', 'flex-direction': 'row', 'flex-basis': '50%', },
-                                items: { tag: 'button', type: 'button', text: 'Новая ветка', onclick: branchNew, },
-                            },
-                            {
-                                tag: 'div', class: 'margin-top',
-                                style: { 'display': 'flex', 'flex-direction': 'row-reverse', 'flex-basis': '50%', },
-                                items: { tag: 'button', type: 'submit', text: 'Сохранить', },
-                            },
+                            { tag: 'button', type: 'button', class: 'btn', text: 'Новая ветка', onclick: branchNew },
+                            { tag: 'button', type: 'submit', class: 'btn', text: 'Сохранить' },
                         ],
                     },
                 ],
             }
-        ]);
+        );
 
-        await context.app.dialog('GitLab - Настройки', dialog, {
-            skinny: false,
-            onHide: () => dialog.remove(),
+        await context.app.dialog(`GitLab - Настройки - ${this.models.workspace.name}`, html.owner, {
+            skinny: true,
+            onHide: () => html.clear(),
         });
 
 
-        async function oninput() {
-            const { name, value } = this;
+        async function onProject() {
+            const value = this.value;
+            if (value === 'gitlab:projects:reload')
+                return await projectReload();
+            config.project = value;
+            await branchReload();
+        }
 
+        async function onBranch() {
+            const value = this.value;
+            if (value === 'gitlab:branch:reload')
+                return await branchReload();
+            config.branch = value;
+        }
 
-            if (name === 'project') {
-                if (value === 'gitlab:projects:reload')
-                    return await projectReload();
-                config.project = value;
-                await branchReload();
-            }
+        async function onToken() {
+            config.token = this.value;
+        }
 
-            if (name === 'branch') {
-                if (value === 'gitlab:branch:reload')
-                    return await branchReload();
-            }
+        async function onHost() {
+            config.host = this.value;
+        }
 
-            config[name] = value;
+        async function onPath() {
+            config.path = this.value;
+        }
+
+        async function onMessage() {
+            config.message = this.value;
         }
 
         async function onsubmit() {
-            config.host = byName('host').value;
-            config.project = byName('project').value;
-            config.token = byName('token').value;
-            config.path = byName('path').value;
-            config.branch = byName('branch').value;
-            config.message = byName('message').value;
+            config.host = html.getById('host').value;
+            config.project = html.getById('project').value;
+            config.token = html.getById('token').value;
+            config.path = html.getById('path').value;
+            config.branch = html.getById('branch').value;
+            config.message = html.getById('message').value;
 
             await self.configSave(config);
 
-            const btn = document.getElementsByClassName('btn btn--compact modal__close-btn');
+            const btn = document.getElementsByClassName('modal__close-btn');
             if (btn.length)
                 btn[0].click();
-
         }
-
-        function byName(name) {
-            //return dialog.querySelector(`[name='${name}']`);
-            return document.getElementById('gitlab:' + name);
-        }
-
 
         async function projectList() {
             let result = [];
@@ -171,16 +171,15 @@ class WorkSpaceActions {
         }
 
         async function projectReload() {
-            const cursor = dialog.style.cursor;
+            const cursor = document.body.style.cursor;
             try {
-                dialog.style.cursor = 'wait';
-                const input = byName('project');
+                document.body.style.cursor = 'wait';
+                const input = html.getById('project');
                 const items = await projectList();
-                input.innerHTML = '';
-                htmlCreate(input, items);
+                html.replace(input, items);
                 input.value = config.project;
             } finally {
-                dialog.style.cursor = cursor;
+                document.body.style.cursor = cursor;
             }
         }
 
@@ -218,38 +217,41 @@ class WorkSpaceActions {
         }
 
         async function branchReload() {
-            const cursor = dialog.style.cursor;
+            const cursor = document.body.style.cursor;
             try {
-                dialog.style.cursor = 'wait';
-                const input = byName('branch');
+                document.body.style.cursor = 'wait';
+                const input = html.getById('branch');
                 const items = await branchList();
-                input.innerHTML = '';
-                htmlCreate(input, items);
+                html.replace(input, items);
                 input.value = config.branch;
             } finally {
-                dialog.style.cursor = cursor;
+                document.body.style.cursor = cursor;
             }
         }
 
 
         async function branchNew() {
-            let name = await context.app.prompt(
-                `Создать ветку от "${config.branch}"`,
-                {
-                    label: 'Новая ветка:',
-                    defaultValue: 'develop',
-                    submitName: 'Подтвердить',
-                    cancelable: true,
+            try {
+                let name = await context.app.prompt(
+                    `Создать ветку от "${config.branch}"`,
+                    {
+                        label: 'Новая ветка:',
+                        defaultValue: 'develop',
+                        submitName: 'Подтвердить',
+                        cancelable: true,
+                    }
+                );
+                if (name && (name = name.trim())) {
+                    const options = { host: config.host, token: config.token, project: config.project, branch: config.branch, name };
+                    try {
+                        if (config.branch = await self.gitlab.branchNew(options))
+                            await branchReload();
+                    } catch (e) {
+                        context.app.alert('GitLab - Ошибка', e);
+                    }
                 }
-            );
-            if (name && (name = name.trim())) {
-                const options = { host: config.host, token: config.token, project: config.project, branch: config.branch, name };
-                try {
-                    if (config.branch = await self.gitlab.branchNew(options))
-                        await branchReload();
-                } catch (e) {
-                    context.app.alert('GitLab - Ошибка', e);
-                }
+            } catch (e) {
+                return;
             }
         }
     }
