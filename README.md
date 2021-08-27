@@ -1,6 +1,7 @@
 # insomnia-plugin-gitlab
 
-Плагин для **Insomnia**
+Плагин для **Insomnia**.
+
 Синхронизирует коллекцию с репозиторием Gitlab
 
 # Загрузка
