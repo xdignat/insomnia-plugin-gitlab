@@ -1,6 +1,6 @@
 {
     "name": "insomnia-plugin-gitlab",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "description": "Синхонизация колекции с GitLab репозиторием",
     "main": "src/index.js",
     "author": "Dignat",

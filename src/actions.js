@@ -2,6 +2,7 @@
 
 const GitLab = require('./gitlab.js');
 const HtmlBuilder = require('./html.js');
+const local = require('./local');
 
 class WorkSpaceActions {
     constructor() {
@@ -39,6 +40,7 @@ class WorkSpaceActions {
         const config = await self.configLoad(context, models);
         let projects = await projectList();
         let branches = await branchList();
+        let locals = localList();
 
         const html = new HtmlBuilder({ prefix: 'gitlab' });
 
@@ -50,27 +52,38 @@ class WorkSpaceActions {
                         tag: 'div', class: 'pad',
                         items: [
                             {
-                                tag: 'label', text: 'Базовый урл:',
+                                //Язык интерфейса:
+                                tag: 'label', text: local.settings.labels.local,
+                                items: { id: 'local', tag: 'select', value: local.value, items: locals, oninput: onLocal },
+                            },
+                            {
+                                //Базовый урл:
+                                tag: 'label', text: local.settings.labels.host,
                                 items: { id: 'host', tag: 'input', type: 'text', placeholder: 'https://gitlab.com', value: config.host, oninput: onHost },
                             },
                             {
-                                tag: 'label', text: 'Токен:',
+                                //Токен:
+                                tag: 'label', text: local.settings.labels.token,
                                 items: { id: 'token', tag: 'input', type: 'text', placeholder: 'accessToken123', value: config.token, oninput: onToken },
                             },
                             {
-                                tag: 'label', text: 'Id проекта:',
+                                //Id проекта:
+                                tag: 'label', text: local.settings.labels.project,
                                 items: { id: 'project', tag: 'select', value: config.project, items: projects, oninput: onProject },
                             },
                             {
-                                tag: 'label', text: 'Ветка:',
+                                //Ветка:
+                                tag: 'label', text: local.settings.labels.branch,
                                 items: { id: 'branch', tag: 'select', value: config.branch, items: branches, oninput: onBranch },
                             },
                             {
-                                tag: 'label', text: 'Имя файла:',
+                                //Имя файла:
+                                tag: 'label', text: local.settings.labels.path,
                                 items: { id: 'path', tag: 'input', type: 'text', placeholder: 'insomnia.json', value: config.path, oninput: onPath },
                             },
                             {
-                                tag: 'label', text: 'Сообщение для комита (не обязательно):',
+                                //Сообщение для комита:
+                                tag: 'label', text: local.settings.labels.message,
                                 items: { id: 'message', tag: 'input', type: 'text', value: config.message, oninput: onMessage },
                             },
                         ],
@@ -78,19 +91,26 @@ class WorkSpaceActions {
                     {
                         tag: 'div', class: 'modal__footer',
                         items: [
-                            { tag: 'button', type: 'button', class: 'btn', text: 'Новая ветка', onclick: branchNew },
-                            { tag: 'button', type: 'submit', class: 'btn', text: 'Сохранить' },
+                            //Новая ветка
+                            { tag: 'button', type: 'button', class: 'btn', text: local.buttons.new_branch, onclick: branchNew },
+                            //Сохранить
+                            { tag: 'button', type: 'submit', class: 'btn', text: local.buttons.save },
                         ],
                     },
                 ],
             }
         );
 
-        await context.app.dialog(`GitLab - Настройки - ${this.models.workspace.name}`, html.owner, {
+        //GitLab - Настройки
+        await context.app.dialog(`${local.settings.head} - ${this.models.workspace.name}`, html.owner, {
             skinny: true,
             onHide: () => html.clear(),
         });
 
+        function onLocal() {
+            local.save(this.value);
+            context.app.alert('GitLab', local.settings.alerts.local);
+        }
 
         async function onProject() {
             const value = this.value;
@@ -138,6 +158,19 @@ class WorkSpaceActions {
                 btn[0].click();
         }
 
+        function localList() {
+            const result = [];
+            const locals = local.locals;
+            for (const value in locals) {
+                result.push({
+                    tag: 'option',
+                    value,
+                    text: locals[value].name,
+                })
+            }
+            return result;
+        }
+
         async function projectList() {
             let result = [];
             try {
@@ -162,10 +195,11 @@ class WorkSpaceActions {
                     },
                     text: '&nbsp;',
                 },
+                //< обновить >
                 {
                     tag: 'option',
                     value: 'gitlab:projects:reload',
-                    text: '< обновить >',
+                    text: local.settings.option.reload
                 },
             ];
         }
@@ -207,10 +241,11 @@ class WorkSpaceActions {
                     },
                     text: '&nbsp;',
                 },
+                //< обновить >
                 {
                     tag: 'option',
                     value: 'gitlab:branch:reload',
-                    text: '< обновить >',
+                    text: local.settings.option.reload,
                 },
             ];
 
@@ -232,12 +267,13 @@ class WorkSpaceActions {
 
         async function branchNew() {
             try {
+                //Создать ветку
                 let name = await context.app.prompt(
-                    `Создать ветку от "${config.branch}"`,
+                    `${local.new_branch.head} "${config.branch}"`,
                     {
-                        label: 'Новая ветка:',
+                        label: local.new_branch.label, //Новая ветка:
                         defaultValue: 'develop',
-                        submitName: 'Подтвердить',
+                        submitName: local.buttons.confirm, //Подтвердить
                         cancelable: true,
                     }
                 );
@@ -247,7 +283,7 @@ class WorkSpaceActions {
                         if (config.branch = await self.gitlab.branchNew(options))
                             await branchReload();
                     } catch (e) {
-                        context.app.alert('GitLab - Ошибка', e);
+                        await context.app.alert(local.error.head, e.message);
                     }
                 }
             } catch (e) {
@@ -269,14 +305,16 @@ class WorkSpaceActions {
 
         let message = config.message;
 
-        while (!message || config.message.trim() === '')
+        while (!message || (message.trim() === '')) {
+            message = '*';
             try {
+                //GitLab - Сообщение для комита
                 message = await context.app.prompt(
-                    `GitLab - Сообщение для комита`,
+                    local.push.head,
                     {
-                        label: 'Сообщение:',
-                        defaultValue: '*',
-                        submitName: 'Отправить',
+                        label: local.push.label, //Сообщение:
+                        defaultValue: message,
+                        submitName: local.push.submit, //Отправить
                         cancelable: true,
                     }
                 );
@@ -284,15 +322,18 @@ class WorkSpaceActions {
                 return;
             }
 
+        }
+
         try {
-            await this.gitlab.push({
+            await this.gitlab.push( {
+                ...config,
                 message,
                 content,
-                ...config,
             });
-            await context.app.alert('GitLab', 'Коллекция успешно сохранена!');
+            //Коллекция успешно сохранена!
+            await context.app.alert('GitLab', local.push.alert);
         } catch (e) {
-            context.app.alert('GitLab - Ошибка', e.message);
+            await context.app.alert(local.error.head, e.message);
         }
     }
 
@@ -304,9 +345,10 @@ class WorkSpaceActions {
             const content = await this.gitlab.pull(config);
             //const content = JSON.stringify(file);
             await context.data.import.raw(content);
-            await context.app.alert('GitLab', 'Коллекция успешна загружена!');
+            //Коллекция успешно загружена!
+            await context.app.alert('GitLab', local.pull.alert);
         } catch (e) {
-            context.app.alert('GitLab - Ошибка', e.message);
+            await context.app.alert(local.error.head, e.message);
         }
 
     }
